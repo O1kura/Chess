@@ -130,17 +130,20 @@ def sortMove(board):
         moveList.append(x)
     for i in range(len(moveList)):
 
-        # Find the minimum element in remaining
+        # Find the maxiimum element in remaining
         # unsorted array
-        min_idx = i
-        square1 = board.piece_at(moveList[i].from_square)
+        max_idx = i
+        squaremax = board.piece_at(moveList[i].from_square)
+
         for j in range(i + 1, len(moveList)):
-            square2 = board.piece_at(moveList[j].from_square)
-            if square1.piece_type < square2.piece_type:
-                min_idx = j
-        # Swap the found minimum element with
+            square1 = board.piece_at(moveList[j].from_square)
+            if squaremax.piece_type < square1.piece_type:
+                max_idx = j
+                squaremax = square1
+        # Swap the found maximum element with
         # the first element
-        moveList[i], moveList[min_idx] = moveList[min_idx], moveList[i]
+        moveList[i], moveList[max_idx] = moveList[max_idx], moveList[i]
+
     return moveList
 
 #####minman algorithm

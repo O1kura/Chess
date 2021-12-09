@@ -4,7 +4,7 @@ import chess
 from PIL import ImageTk,Image
 
 import AI
-import AIc
+
 #game declare
 board = chess.Board()
 white = True
@@ -167,6 +167,9 @@ def move(dest_square):
     # handle pawn promotion
     if move + 'q' in AI.validMove(board):
         move += 'q'
+        #sym = promotion(white)
+        #move += sym
+
 
     if move in AI.validMove(board):
         board.push(chess.Move.from_uci(move))
@@ -174,10 +177,11 @@ def move(dest_square):
         count_undo(False)
         label_status[ 'text'] = "Computer's turn. The computer is thinking..."
         refresh()
-        gui.after(1000, botMove)
+        if not endcheck():
+            gui.after(1000, botMove)
     else:
         label_status['text'] = "Wrong move, try again."
-    endcheck()
+
     refresh()
 #highlight possible moves
 def highlight(position):
@@ -235,8 +239,11 @@ def endcheck():
             label_status["text"] = "Black win"
         else:
             label_status["text"] = "White win"
+        return  True
     elif board.is_stalemate():
         label_status["text"] = "It was a draw."
+        return True
+    else: return False
 #restart option
 def restart_white():
     setWhite(True)

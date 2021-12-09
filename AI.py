@@ -1,10 +1,8 @@
 # declaration
-
 scoreMap = {'K': 1000, 'Q': 90, 'R': 50, 'N': 30, 'B': 30, 'P': 10,
             'k': -1000, 'q': -90, 'r': -50, 'n': -30, 'b': -30, 'p': -10}
 WinScore = 800
-Depth = 4
-
+Depth = 3
 
 # initialized in reverse order of row for easily observation
 WhitePawnPos = [
@@ -62,7 +60,6 @@ WhiteKingPos = [
     [2.0,  2.0,  0.0,  0.0,  0.0,  0.0,  2.0,  2.0],
     [2.0,  3.0,  1.0,  0.0,  0.0,  1.0,  3.0,  2.0]]
 
-
 # reverse board (col 0 <-> 7, col 1 <-> 8, ... of the board)
 # for changing from weighted positions from white to black
 def reverseList(list2D):
@@ -70,7 +67,6 @@ def reverseList(list2D):
     for row in list2D:
         newList = [row] + newList
     return newList
-
 
 # get weighted positions of black side from white
 BlackPawnPos = WhitePawnPos
@@ -93,8 +89,6 @@ BlackPos = [BlackPawnPos, BlackKnightPos, BlackBishopPos, BlackRockPos, BlackQue
 WhitePos = [WhitePawnPos, WhiteKnightPos, WhiteBishopPos, WhiteRockPos, WhiteQueenPos, WhiteKingPos]
 PiecePos = [BlackPos, WhitePos]
 
-
-
 # game check
 def validMove(board):
     listMove = []
@@ -115,29 +109,20 @@ def movePos(board, move):
     # return = position to - position from
     return(PiecePos[intColor][pieceType][toRow][toCol] - PiecePos[intColor][pieceType][fromRow][fromCol])
 #Score base on pieces values
-'''
-def scoreBoard1(board):
-    score1 = 0
-    for square in chess.SQUARES:
-        piece = board.piece_at(square)
-        if piece is not None:
-            intColor = int(piece.color)  # Black:False->0,white:True->1
-            pieceType = piece.piece_type - 1  # Pown->King: 1-6 -> 0-5
-            row = square // 8
-            column = square % 8
-            score1 += scoreMap.get(piece.symbol())
-            if piece.color:
-                score1 += PiecePos[intColor][pieceType][row][column]
-            else:
-                score1 -= PiecePos[intColor][pieceType][row][column]
-
-    return score1
-    '''
 def scoreBoard(board):
-   score = 0
-   for i in board.piece_map().values():
-      score += scoreMap.get(i.symbol())
-   return score
+    if board.is_checkmate():
+        if board.turn == False:
+            score = WinScore
+        else:
+            score = - WinScore
+        return score
+    elif board.is_stalemate():
+        return 0
+    else:
+       score = 0
+       for i in board.piece_map().values():
+          score += scoreMap.get(i.symbol())
+       return score
 # sorting move from queen -> pawn
 def sortMove(board):
     moveList = []
@@ -157,71 +142,43 @@ def sortMove(board):
         # the first element
         moveList[i], moveList[min_idx] = moveList[min_idx], moveList[i]
     return moveList
-# find the best (max) move for white
-def maxValue(board, depth, beta):
-    #global score1
-    if board.is_checkmate():
-        if board.turn==False:
-            score = WinScore
-        else: score = - WinScore
-        #score1 = -WinScore if board.turn == False else WinScore
-        return (score,None)
-    if board.is_stalemate():
-        #score1 = 0
-        return (0,None)
-    if depth == 0:
-        return (scoreBoard(board),None)                                   # depth limit
 
-    valMax = -WinScore; alpha = -WinScore
+#####minman algorithm
+def findMoveNegaMaxAlphaBeta(board, depth, alpha, beta, white):
+    global nextMove, counter
+    counter +=1 #dem so nuoc ma may tinh toan duoc
+    if white: turnMultiplier = - 1
+    else: turnMultiplier = 1
+
+    if depth ==0:
+        return turnMultiplier * scoreBoard(board)
+
+    maxScore = -WinScore
+
     for move in sortMove(board):
         newBoard = board.copy()
         newBoard.push(move)
 
-        val = minValue(newBoard, depth-1, alpha)[0]
-        val += movePos(board,move)                  # run with position calculation option
+        score = -findMoveNegaMaxAlphaBeta(newBoard, depth-1, -beta, -alpha, not white)
+        score += movePos(board,move)
+        if score > maxScore:
+            maxScore = score
+            if depth == Depth:
+                nextMove = move
 
-        if val >= beta: return (val, move)                      # alpha-beta prunning
-        if alpha < val: alpha = val                             # alpha-beta prunning
+        if maxScore > alpha:
+            alpha = maxScore
+        if alpha >= beta:
+            break
+    return maxScore
 
-        if valMax < val:
-            (valMax, okmove) = (val, move)
+#find move and push
+def findBestMove(board,white):
+    global nextMove, counter
+    nextMove = None
+    counter = 0
+    findMoveNegaMaxAlphaBeta(board,Depth, -WinScore, WinScore, white)
 
-    return (valMax, okmove)
-
-# find the best (min) move for black
-def minValue(board, depth, alpha):
-    if board.is_checkmate():
-        if board.turn==False:
-            score = WinScore
-        else: score = - WinScore
-        return (score,None)
-    if board.is_stalemate():
-        return (0,None)
-    if depth == 0: return (scoreBoard(board),None)                                   # depth limit
-
-    valMin = WinScore; beta = WinScore
-    for move in sortMove(board):
-        newBoard = board.copy()
-        newBoard.push(move)
-
-        val = maxValue(newBoard, depth-1, beta)[0]
-        val -= movePos(board,move)                  # run with position calculation option
-
-        if val <= alpha: return (val, move)                     # alpha-beta prunning
-        if beta > val: beta = val                               # alpha-beta prunning
-
-        if valMin > val:
-            (valMin, okmove) = (val, move)
-
-
-    return (valMin, okmove)
-
-#Bot makes a move
-def makeMove(board,white):
-
-    if not white:
-        (score, move) = maxValue(board, Depth, WinScore)
-    else: (score, move) = minValue(board, Depth, -WinScore)
-
-    if move != None:
-        board.push(move)
+    if nextMove is not None:
+        board.push(nextMove)
+    else: board.push(sortMove(board)[0])

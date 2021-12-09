@@ -194,8 +194,8 @@ def highlight(position):
 
 #botmove
 def botMove():
-    AI.makeMove(board)
-    #AIc.findMoveNegaMax(board,board.legal_moves,2,1)
+    #AI.makeMove(board)
+    AI.findBestMove(board,white)
     setPlayerTurn(True)
     label_status["text"] = "Your turn"
     endcheck()

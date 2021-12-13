@@ -1,8 +1,11 @@
 # declaration
-scoreMap = {'K': 1000, 'Q': 90, 'R': 50, 'N': 30, 'B': 30, 'P': 10,
-            'k': -1000, 'q': -90, 'r': -50, 'n': -30, 'b': -30, 'p': -10}
+
+scoreMap = {'K': 0, 'Q': 90, 'R': 50, 'N': 30, 'B': 30, 'P': 10,
+            'k': 0, 'q': - 90, 'r': -50, 'n': -30, 'b': -30, 'p': -10}
 WinScore = 800
-Depth = 3
+Depth = 2
+LateGame = False
+
 
 # initialized in reverse order of row for easily observation
 WhitePawnPos = [
@@ -10,8 +13,8 @@ WhitePawnPos = [
     [5.0,  5.0,  5.0,  5.0,  5.0,  5.0,  5.0,  5.0],
     [1.0,  1.0,  2.0,  3.0,  3.0,  2.0,  1.0,  1.0],
     [0.5,  0.5,  1.0,  2.5,  2.5,  1.0,  0.5,  0.5],
-    [0.0,  0.0,  0.0,  1.5,  2.0,  0.0,  0.0,  0.0],
-    [0.5, -0.5, -1.0,  0.0,  0.0, -1.0, -0.5,  1.0],
+    [0.0,  0.0,  0.0,  2.0,  2.0,  0.0,  0.0,  0.0],
+    [0.5, -0.5, -1.0,  0.0,  0.0, -1.0, -0.5,  0.5],
     [0.5,  1.0, 1.0,  -2.0, -2.0,  1.0,  1.0,  0.5],
     [0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0]]
 WhiteKnightPos = [
@@ -58,7 +61,18 @@ WhiteKingPos = [
     [-2.0, -3.0, -3.0, -4.0, -4.0, -3.0, -3.0, -2.0],
     [-1.0, -2.0, -2.0, -2.0, -2.0, -2.0, -2.0, -1.0],
     [2.0,  2.0,  0.0,  0.0,  0.0,  0.0,  2.0,  2.0],
-    [2.0,  3.0,  1.0,  0.0,  0.0,  1.0,  3.0,  2.0]]
+    [2.0,  2.0,  3.0,  0.0,  0.0,  0.0,  3.0,  2.0]]
+
+#Late game for king move
+LateKingPos=[
+    [-5.0, -2.0, -1.5, -1.0, -1.0, -1.5, -2.0, -5.0],
+    [-2.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, -2.0],
+    [-1.5, 1.0, 3.0, 3.0, 3.0, 3.0, 1.0, -1.5],
+    [-1.0, 1.0, 3.0, 2.0, 2.0, 3.0, 1.0, -1.0],
+    [-1.0, 1.0, 3.0, 2.0, 2.0, 3.0, 1.0, -1.0],
+    [-1.5, 1.0, 3.0, 3.0, 3.0, 3.0, 1.0, -1.5],
+    [-2.0,  1.0,  1.0,  1.0,  1.0,  1.0,  1.0,  -2.0],
+    [-5.0,  -2.0, -1.5, -1.0, -1.0, -1.5, -2.0, -5.0]]
 
 # reverse board (col 0 <-> 7, col 1 <-> 8, ... of the board)
 # for changing from weighted positions from white to black
@@ -110,6 +124,73 @@ def movePos(board, move):
     return(PiecePos[intColor][pieceType][toRow][toCol] - PiecePos[intColor][pieceType][fromRow][fromCol])
 #Score base on pieces values
 def scoreBoard(board):
+   sum = 0
+   for i in board.piece_map().values():
+      sum += scoreMap.get(i.symbol())
+
+   newBoard = board.copy()
+   for y in range(Depth):
+       if newBoard.turn:
+           sum -= movePos(newBoard,newBoard.pop())
+           print("sum+:",sum)
+       else:
+           sum += movePos(newBoard,newBoard.pop())
+           print("sum-:", sum)
+
+
+   return sum
+def lateChange(board):
+
+    score = 0
+    for i in board.piece_map().values():
+        if i.color:
+            score += scoreMap.get(i.symbol())
+        else:
+            score -= scoreMap.get(i.symbol())
+    if(score< 150):
+        PiecePos[0][5] = LateKingPos
+        PiecePos[1][5] = LateKingPos
+        global Depth, LateGame
+        Depth+=1
+        LateGame = True
+
+#undo late game changing (restart)
+def undoChange():
+    PiecePos[0][5] = BlackKingPos
+    PiecePos[1][5] = WhiteKingPos
+    global Depth,LateGame
+    Depth -= 1
+    LateGame = False
+
+# sorting move from queen -> pawn
+def sortMove(board):
+    moveList = []
+    for x in board.legal_moves:
+        moveList.append(x)
+    for i in range(len(moveList)):
+
+        # Find the maxiimum element in remaining
+        # unsorted array
+        max_idx = i
+        squaremax = board.piece_at(moveList[i].from_square)
+
+        for j in range(i + 1, len(moveList)):
+            square1 = board.piece_at(moveList[j].from_square)
+            if squaremax.piece_type < square1.piece_type:
+                max_idx = j
+                squaremax = square1
+        # Swap the found maximum element with
+        # the first element
+        moveList[i], moveList[max_idx] = moveList[max_idx], moveList[i]
+
+    return moveList
+#####minman algorithm
+def findMoveNegaMaxAlphaBeta(board, depth, alpha, beta, white):
+    global nextMove, counter
+    counter +=1 #dem so nuoc ma may tinh toan duoc
+    if not white: turnMul =1
+    else: turnMul = -1
+
     if board.is_checkmate():
         if board.turn == False:
             score = WinScore
@@ -118,67 +199,47 @@ def scoreBoard(board):
         return score
     elif board.is_stalemate():
         return 0
-    else:
-       score = 0
-       for i in board.piece_map().values():
-          score += scoreMap.get(i.symbol())
-       return score
-# sorting move from queen -> pawn
-def sortMove(board):
-    moveList = []
-    for x in board.legal_moves:
-        moveList.append(x)
-    for i in range(len(moveList)):
 
-        # Find the minimum element in remaining
-        # unsorted array
-        min_idx = i
-        square1 = board.piece_at(moveList[i].from_square)
-        for j in range(i + 1, len(moveList)):
-            square2 = board.piece_at(moveList[j].from_square)
-            if square1.piece_type < square2.piece_type:
-                min_idx = j
-        # Swap the found minimum element with
-        # the first element
-        moveList[i], moveList[min_idx] = moveList[min_idx], moveList[i]
-    return moveList
+    if depth == 0:
+        return turnMul * scoreBoard(board)
 
-#####minman algorithm
-def findMoveNegaMaxAlphaBeta(board, depth, alpha, beta, white):
-    global nextMove, counter
-    counter +=1 #dem so nuoc ma may tinh toan duoc
-    if white: turnMultiplier = - 1
-    else: turnMultiplier = 1
-
-    if depth ==0:
-        return turnMultiplier * scoreBoard(board)
-
-    maxScore = -WinScore
+    best_score = - WinScore
 
     for move in sortMove(board):
+
         newBoard = board.copy()
         newBoard.push(move)
 
-        score = -findMoveNegaMaxAlphaBeta(newBoard, depth-1, -beta, -alpha, not white)
-        score += movePos(board,move)
-        if score > maxScore:
-            maxScore = score
+        score = - findMoveNegaMaxAlphaBeta(newBoard, depth-1, - beta, -alpha,not white)
+
+        if score > best_score:
+            best_score = score
             if depth == Depth:
                 nextMove = move
 
-        if maxScore > alpha:
-            alpha = maxScore
+        alpha = max(alpha,best_score)
         if alpha >= beta:
             break
-    return maxScore
+
+    return best_score
 
 #find move and push
 def findBestMove(board,white):
-    global nextMove, counter
+    global nextMove, counter, counter1, LateGame
+
     nextMove = None
     counter = 0
-    findMoveNegaMaxAlphaBeta(board,Depth, -WinScore, WinScore, white)
+    counter1 = 0
+    if(LateGame is False):
+        lateChange(board)
+
+    score =\
+        findMoveNegaMaxAlphaBeta(board,Depth,-WinScore, WinScore, white)
 
     if nextMove is not None:
         board.push(nextMove)
-    else: board.push(sortMove(board)[0])
+        print(nextMove.uci(),score)
+        print(counter)
+    else:
+        print("None")
+        board.push(sortMove(board)[0])

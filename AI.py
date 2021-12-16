@@ -1,20 +1,32 @@
 # declaration
+import chess.polyglot
+
+TTable = {}
+#claar ttable incase player makes an undo move
+def clear_ttable():
+    TTable.clear()
+#Entry type for transposition table
+def ttEntry(move,depth,score,type):
+    return {'move' : move,
+            'depth': depth,
+            'value' : score,
+            'flag': type}
 
 scoreMap = {'K': 0, 'Q': 90, 'R': 50, 'N': 30, 'B': 30, 'P': 10,
             'k': 0, 'q': - 90, 'r': -50, 'n': -30, 'b': -30, 'p': -10}
 WinScore = 800
-Depth = 2
+Depth = 4
 LateGame = False
 
 
 # initialized in reverse order of row for easily observation
 WhitePawnPos = [
-    [10.0,  10.0,  10.0,  10.0,  10.0,  10.0,  10.0,  10.0],
+    [5.0,  5.0,  5.0,  5.0,  5.0,  5.0,  5.0,  5.0],
     [5.0,  5.0,  5.0,  5.0,  5.0,  5.0,  5.0,  5.0],
     [1.0,  1.0,  2.0,  3.0,  3.0,  2.0,  1.0,  1.0],
     [0.5,  0.5,  1.0,  2.5,  2.5,  1.0,  0.5,  0.5],
     [0.0,  0.0,  0.0,  2.0,  2.0,  0.0,  0.0,  0.0],
-    [0.5, -0.5, -1.0,  0.0,  0.0, -1.0, -0.5,  0.5],
+    [1.0, -0.5, -1.0,  0.0,  0.0, -1.0, -0.5,  1.0],
     [0.5,  1.0, 1.0,  -2.0, -2.0,  1.0,  1.0,  0.5],
     [0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0]]
 WhiteKnightPos = [
@@ -60,8 +72,8 @@ WhiteKingPos = [
     [-3.0, -4.0, -4.0, -5.0, -5.0, -4.0, -4.0, -3.0],
     [-2.0, -3.0, -3.0, -4.0, -4.0, -3.0, -3.0, -2.0],
     [-1.0, -2.0, -2.0, -2.0, -2.0, -2.0, -2.0, -1.0],
-    [2.0,  2.0,  0.0,  0.0,  0.0,  0.0,  2.0,  2.0],
-    [2.0,  2.0,  3.0,  0.0,  0.0,  0.0,  3.0,  2.0]]
+    [2.0,  2.0,  0.0,  -2.0,  -2.0,  -2.0,  2.0,  2.0],
+    [2.0,  2.0,  3.0,  -2.0,  0.0,  -2.0,  3.0,  2.0]]
 
 #Late game for king move
 LateKingPos=[
@@ -132,11 +144,8 @@ def scoreBoard(board):
    for y in range(Depth):
        if newBoard.turn:
            sum -= movePos(newBoard,newBoard.pop())
-           print("sum+:",sum)
        else:
            sum += movePos(newBoard,newBoard.pop())
-           print("sum-:", sum)
-
 
    return sum
 def lateChange(board):
@@ -187,9 +196,26 @@ def sortMove(board):
 #####minman algorithm
 def findMoveNegaMaxAlphaBeta(board, depth, alpha, beta, white):
     global nextMove, counter
-    counter +=1 #dem so nuoc ma may tinh toan duoc
+    counter +=1
     if not white: turnMul =1
     else: turnMul = -1
+
+    #Transposition table :lookup entry
+    alphaOrig = alpha
+
+    if chess.polyglot.zobrist_hash(board) in TTable:
+        entry = TTable[chess.polyglot.zobrist_hash(board)]
+        if entry['depth']>=depth:
+            if entry['flag'] == 'exact':
+                return entry['value']
+            elif entry['flag'] == 'lower':
+                alpha = max(alpha,entry['value'])
+            elif entry['flag'] == 'upper':
+                beta = min(beta, entry['value'])
+
+            if alpha >= beta:
+                return entry['value']
+    #end1'''
 
     if board.is_checkmate():
         if board.turn == False:
@@ -221,15 +247,29 @@ def findMoveNegaMaxAlphaBeta(board, depth, alpha, beta, white):
         if alpha >= beta:
             break
 
+    # Transposition table : store entry
+    if best_score <= alphaOrig:
+        ttentry = ttEntry(move,depth,best_score,'upper')
+    elif best_score >= beta:
+        ttentry = ttEntry(move,depth,best_score,'lower')
+    else:
+        ttentry = ttEntry(move,depth,best_score,"exact")
+
+    if len(TTable)>100000:
+        TTable.popitem()
+    TTable[chess.polyglot.zobrist_hash(board)] = ttentry
+    
+
+
     return best_score
 
 #find move and push
 def findBestMove(board,white):
-    global nextMove, counter, counter1, LateGame
+    global nextMove, counter, LateGame
 
     nextMove = None
     counter = 0
-    counter1 = 0
+
     if(LateGame is False):
         lateChange(board)
 
@@ -238,8 +278,8 @@ def findBestMove(board,white):
 
     if nextMove is not None:
         board.push(nextMove)
-        print(nextMove.uci(),score)
+        print(nextMove.uci())
         print(counter)
     else:
         print("None")
-        board.push(sortMove(board)[0])
+        board.push(sortMove(board)[9])

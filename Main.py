@@ -198,7 +198,6 @@ def highlight(position):
 
 #botmove
 def botMove():
-    #AI.makeMove(board)
     AI.findBestMove(board,white)
     setPlayerTurn(True)
     label_status["text"] = "Your turn"
@@ -210,6 +209,7 @@ def undo():
         return None
     #else:
     elif count_undo(True) and len(board.move_stack) != 0:
+        AI.clear_ttable()
         board.pop()
         board.pop()
         refresh()
@@ -246,12 +246,16 @@ def endcheck():
     else: return False
 #restart option
 def restart_white():
+    AI.clear_ttable()
     setWhite(True)
     board.reset()
+    AI.undoChange()
     refresh()
     start()
 def restart_black():
+    AI.clear_ttable()
     setWhite(False)
+    AI.undoChange()
     board.reset()
     refresh()
     start()
@@ -265,4 +269,3 @@ sub1.add_separator()
 menu.add_cascade(label = "Game",menu=sub1)
 #run
 start()
-

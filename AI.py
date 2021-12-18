@@ -1,6 +1,12 @@
 # declaration
+import random
 import chess.polyglot
 
+#for endgame tablebase
+import chess.syzygy
+tablebase = chess.syzygy.open_tablebase("data/Endgame")
+
+#Transposition table declaer
 TTable = {}
 #claar ttable incase player makes an undo move
 def clear_ttable():
@@ -148,6 +154,7 @@ def scoreBoard(board):
            sum += movePos(newBoard,newBoard.pop())
 
    return sum
+#late game changing
 def lateChange(board):
 
     score = 0
@@ -193,7 +200,7 @@ def sortMove(board):
         moveList[i], moveList[max_idx] = moveList[max_idx], moveList[i]
 
     return moveList
-#####minman algorithm
+#####minman algorithm(Negamax)
 def findMoveNegaMaxAlphaBeta(board, depth, alpha, beta, white):
     global nextMove, counter
     counter +=1
@@ -215,15 +222,11 @@ def findMoveNegaMaxAlphaBeta(board, depth, alpha, beta, white):
 
             if alpha >= beta:
                 return entry['value']
-    #end1'''
 
     if board.is_checkmate():
-        if board.turn == False:
-            score = WinScore
-        else:
-            score = - WinScore
+        score = -WinScore
         return score
-    elif board.is_stalemate():
+    elif board.is_game_over():
         return 0
 
     if depth == 0:
@@ -238,16 +241,17 @@ def findMoveNegaMaxAlphaBeta(board, depth, alpha, beta, white):
 
         score = - findMoveNegaMaxAlphaBeta(newBoard, depth-1, - beta, -alpha,not white)
 
+
         if score > best_score:
             best_score = score
             if depth == Depth:
                 nextMove = move
-
+        #prunning
         alpha = max(alpha,best_score)
         if alpha >= beta:
             break
 
-    # Transposition table : store entry
+    #Transposition table : store entry
     if best_score <= alphaOrig:
         ttentry = ttEntry(move,depth,best_score,'upper')
     elif best_score >= beta:
@@ -255,11 +259,7 @@ def findMoveNegaMaxAlphaBeta(board, depth, alpha, beta, white):
     else:
         ttentry = ttEntry(move,depth,best_score,"exact")
 
-    if len(TTable)>100000:
-        TTable.popitem()
     TTable[chess.polyglot.zobrist_hash(board)] = ttentry
-    
-
 
     return best_score
 
@@ -269,17 +269,57 @@ def findBestMove(board,white):
 
     nextMove = None
     counter = 0
+    try:
+        findLateMove(board)
+    except chess.syzygy.MissingTableError:
+        if(LateGame is False):
+            lateChange(board)
 
-    if(LateGame is False):
-        lateChange(board)
-
-    score =\
         findMoveNegaMaxAlphaBeta(board,Depth,-WinScore, WinScore, white)
 
-    if nextMove is not None:
-        board.push(nextMove)
-        print(nextMove.uci())
-        print(counter)
+        if nextMove is not None:
+            board.push(nextMove)
+            print(nextMove.uci())
+            print(counter)
+        else:
+            print("else")
+            board.push(sortMove(board)[random.randint(0,len(sortMove(board)))])
+
+
+#using endgame tablebases
+def findLateMove(board):
+    winDtz = loseDtz = -WinScore
+    winningMove = None
+    losingMove = None
+
+    for move in board.legal_moves:
+        newBoard = board.copy()
+        newBoard.push(move)
+        dtz = tablebase.probe_dtz(newBoard)
+
+        # dtz < 0 which means this is the winning move
+        # if dtz = 0 means it has reached a turning point
+        # diz > 0 means the player takes the win so just make sure it'll take the most steps for player
+        # to win
+        if dtz < 0:
+            #handle promotion
+            if move.uci()[-1] == 'q' or move.uci()[-1] == 'Q':
+                winningMove = move
+                winDtz = dtz
+
+            if winDtz <= dtz:
+                winDtz = dtz
+                winningMove = move
+        elif dtz ==0:
+            # if there's no winning move the best move actually is to reach the turning point
+            if winningMove is None:
+                winningMove =move
+        else:
+            if loseDtz < dtz :
+                loseDtz = dtz
+                losingMove = move
+
+    if winningMove is not None:
+        board.push(winningMove)
     else:
-        print("None")
-        board.push(sortMove(board)[9])
+        board.push(losingMove)

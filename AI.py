@@ -2,6 +2,8 @@
 import random
 import chess.polyglot
 
+#for opening book
+reader = chess.polyglot.open_reader('data/opening.bin')
 #for endgame tablebase
 import chess.syzygy
 tablebase = chess.syzygy.open_tablebase("data/Endgame")
@@ -51,7 +53,7 @@ WhiteBishopPos = [
     [-1.0,  0.5,  0.5,  1.0,  1.0,  0.5,  0.5, -1.0],
     [-1.0,  0.0,  1.0,  1.0,  1.0,  1.0,  0.0, -1.0],
     [-1.0,  1.0,  1.0,  1.0,  1.0,  1.0,  1.0, -1.0],
-    [-1.0,  0.5,  0.0,  0.0,  0.0,  0.0,  0.5, -1.0],
+    [-1.0,  1.5,  0.0,  0.0,  0.0,  0.0,  1.5, -1.0],
     [-2.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -2.0]]
 WhiteRockPos = [
     [0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0],
@@ -269,23 +271,38 @@ def findBestMove(board,white):
 
     nextMove = None
     counter = 0
-    try:
-        findLateMove(board)
-    except chess.syzygy.MissingTableError:
-        if(LateGame is False):
-            lateChange(board)
+    #read from opening book
+    opening_moves = [
+        entry.move for entry in reader.find_all(board)
+    ]
 
-        findMoveNegaMaxAlphaBeta(board,Depth,-WinScore, WinScore, white)
+    if opening_moves:
+        board.push(opening_moves[random.randint(0,len(opening_moves)-1)])
+        print("from opening book:", board.peek().uci())
+        openingmoves(board)
+    else:
+        #try to find mathching end game
+        try:
+            findLateMove(board)
+        #if not then use minmax algorithm
+        except chess.syzygy.MissingTableError:
+            if(LateGame is False):
+                lateChange(board)
 
-        if nextMove is not None:
-            board.push(nextMove)
-            print(nextMove.uci())
-            print(counter)
-        else:
-            print("else")
-            board.push(sortMove(board)[random.randint(0,len(sortMove(board)))])
+            findMoveNegaMaxAlphaBeta(board,Depth,-WinScore, WinScore, white)
 
-
+            if nextMove is not None:
+                board.push(nextMove)
+                print(nextMove.uci())
+                print(counter)
+            else:
+                print("done")
+                board.push(sortMove(board)[random.randint(0,len(sortMove(board))-1)])
+def openingmoves(board):
+    opening_moves = [
+        str(entry.move) for entry in reader.find_all(board)
+    ]
+    print(opening_moves)
 #using endgame tablebases
 def findLateMove(board):
     winDtz = loseDtz = -WinScore
@@ -321,5 +338,7 @@ def findLateMove(board):
 
     if winningMove is not None:
         board.push(winningMove)
+        print("from endgame tablebases: ",winningMove)
     else:
         board.push(losingMove)
+        print("from endgame tablebases: ",losingMove)

@@ -48,10 +48,10 @@ def count_undo(choice):
 canvas_width = COLUMN_NUMBER * square_size
 canvas_height = ROW_NUMBER * square_size
 canvas = tkinter.Canvas(gui,width=canvas_width, height=canvas_height, background='grey')
-#statusbar = tkinter.Frame(gui, height=32)
+
 label_status = tkinter.Label(text='', fg='black')
 label_status.pack(side=tkinter.TOP, expand=0)
-#statusbar.pack(expand=False, fill='x', side='bottom')
+
 menu = tkinter.Menu(gui)
 gui.config(menu = menu)
 #a var for considering player move
@@ -166,16 +166,31 @@ def move(dest_square):
 
     # handle pawn promotion
     if move + 'q' in AI.validMove(board):
-        move += 'q'
-        #sym = promotion(white)
-        #move += sym
+        root = Toplevel()
+        var = StringVar()
+        R1 = Radiobutton(root, text="Queen", variable=var, value='q',
+                         command=root.destroy)
+        R1.pack(anchor=W)
 
+        R2 = Radiobutton(root, text="Rook", variable=var, value='r',
+                         command=root.destroy)
+        R2.pack(anchor=W)
+
+        R3 = Radiobutton(root, text="Knight", variable=var, value='n',
+                         command=root.destroy)
+        R3.pack(anchor=W)
+
+        R4 = Radiobutton(root, text="Bishop", variable=var, value='b',
+                         command=root.destroy)
+        R4.pack(anchor=W)
+        gui.wait_variable(var)
+        move += str(var.get())
 
     if move in AI.validMove(board):
         board.push(chess.Move.from_uci(move))
         setPlayerTurn(False)
         count_undo(False)
-        label_status[ 'text'] = "Computer's turn. The computer is thinking..."
+        label_status['text'] = "Computer's turn. The computer is thinking..."
         refresh()
         if not endcheck():
             gui.after(1000, botMove)
@@ -240,7 +255,7 @@ def endcheck():
         else:
             label_status["text"] = "White win"
         return  True
-    elif board.is_stalemate():
+    elif board.is_game_over():
         label_status["text"] = "It was a draw."
         return True
     else: return False
@@ -259,6 +274,7 @@ def restart_black():
     board.reset()
     refresh()
     start()
+
 #add restart to menu
 sub1 = tkinter.Menu(menu)
 sub2 = tkinter.Menu(sub1)
@@ -268,4 +284,5 @@ sub1.add_cascade(label = "Restart",menu = sub2)
 sub1.add_separator()
 menu.add_cascade(label = "Game",menu=sub1)
 #run
-start()
+if __name__ == "__main__":
+    start()
